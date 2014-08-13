@@ -42,7 +42,7 @@ def get_path(filename):
     date_time = get_exif_date(filename)
     return '%d/%.2d'%(date_time.year, date_time.month)
 
-files = ('../data/video.mp4','../data/DSC_0003.JPG')
+files = ('../../data/video.mp4','../../data/DSC_0003.JPG')
 #filename = 'teste.jpg'
 for filename in files:
     photo_path = get_path(filename)
