@@ -2,6 +2,7 @@
 import datetime
 import sys
 import os
+import os.path
 
 
 class MetadataReader:
@@ -12,8 +13,8 @@ class MetadataReader:
     a midia sera armazenada a partir dessas informacoes (ano e mes)'''
     def __init__(self, filename):
         self.filename = filename
-        self.month = None
-        self.year = None
+        self.month = 'noyear'
+        self.year = 'nomonth'
         
     def get_path(self):
         '''Retorna o caminho a ser usado no armazenamento da midia (ano/mes)'''
@@ -37,11 +38,13 @@ class JpegReaderExifReader(MetadataReader):
         f = open(self.filename,'rb')
         keys = exifread.process_file(f,details=False)
         f.close()
-        exif_date = keys['EXIF DateTimeOriginal']
-        date_string = exif_date.values
-        date_time = datetime.datetime.strptime(date_string,'%Y:%m:%d %H:%M:%S') 
-        self.year = date_time.year
-        self.month = date_time.month
+        key = 'EXIF DateTimeOriginal'
+        if key in keys:
+            exif_date = keys[key]
+            date_string = exif_date.values
+            date_time = datetime.datetime.strptime(date_string,'%Y:%m:%d %H:%M:%S') 
+            self.year = date_time.year
+            self.month = date_time.month
 
 
 # http://hachoir3.readthedocs.org/
@@ -142,29 +145,49 @@ class ParserResolver:
 #files = sys.argv[1:]
 files = ('../../data/video.mp4','../../data/DSC_0003.JPG')
 
-result = dict()
 
-pr = ParserResolver()
-for file in files:
-    pr.set_filename(file)
-    p = pr.get_parser()
-    if p:
-        p.parse()
-        if not p.year:
-            p.year = 'noyear'
-        if not p.month:
-            p.month = 'nomonth'
-        if p.year not in result.keys():
-            result[p.year] = dict()
-        if p.month not in result[p.year].keys():
-            result[p.year][p.month] = list()
-        result[p.year][p.month].append(p.filename)
-    else:
-        print 'Falhou para %s'%file
-
-for year in sorted(result.keys()):
-    print 'ANO: %s' % year
-    for month in sorted(result[year].keys()):
-        print ' * MES: %s' % month
-        for file in sorted(result[year][month]):
-            print '   - %s' % file
+class Photokeeper:
+    def __init__(self,original_dir,destination_dir):
+        self.original_dir = original_dir
+        self.destination_dir = destination_dir
+        self.target_files = dict()
+        self.failed_files = list()
+        self.parser_resolver = ParserResolver()
+        
+    def read_original_files(self):
+        os.path.walk(self.original_dir,Photokeeper._read_one_original_dir, self)
+        
+    def _read_one_original_dir(self,dirname,filenames):
+        for filename in filenames:
+            full_filename = os.path.join(dirname,filename)
+            self.parser_resolver.set_filename(full_filename)
+            parser = self.parser_resolver.get_parser()
+            if parser:
+                parser.parse()
+                year = parser.year
+                month = parser.month
+                if year not in self.target_files.keys():
+                    self.target_files[year] = dict()
+                if month not in self.target_files[year].keys():
+                    self.target_files[year][month] = list()
+                self.target_files[year][month].append(full_filename)
+            else:
+                self.failed_files.append(full_filename)
+                
+    def print_orginal_files(self):
+        for year in sorted(self.target_files.keys()):
+            print '# YEAR %s' % year
+            for month in sorted(self.target_files[year].keys()):
+                print '## MONTH %s' % month
+                for f in sorted(self.target_files[year][month]):
+                    print ' - %s' % f
+                    
+    def print_failed_files(self):
+        for f in self.failed_files:
+            print ' - %s' % f
+                    
+                    
+k = Photokeeper('/home/ubuntu/data',None)
+k.read_original_files()
+k.print_orginal_files()
+k.print_failed_files()
