@@ -138,16 +138,33 @@ class ParserResolver:
         else:
             return None
 
-# files = ('../../data/DSC_0003.JPG',)
-files = sys.argv[1:]
-#files = ('../../data/video.mp4','../../data/DSC_0003.JPG')
+#files = ('../../data/DSC_0003.JPG',)
+#files = sys.argv[1:]
+files = ('../../data/video.mp4','../../data/DSC_0003.JPG')
+
+result = dict()
+
 pr = ParserResolver()
 for file in files:
     pr.set_filename(file)
     p = pr.get_parser()
     if p:
         p.parse()
-        print os.path.basename(p.filename), p.get_path()
+        if not p.year:
+            p.year = 'noyear'
+        if not p.month:
+            p.month = 'nomonth'
+        if p.year not in result.keys():
+            result[p.year] = dict()
+        if p.month not in result[p.year].keys():
+            result[p.year][p.month] = list()
+        result[p.year][p.month].append(p.filename)
     else:
         print 'Falhou para %s'%file
 
+for year in sorted(result.keys()):
+    print 'ANO: %s' % year
+    for month in sorted(result[year].keys()):
+        print ' * MES: %s' % month
+        for file in sorted(result[year][month]):
+            print '   - %s' % file
