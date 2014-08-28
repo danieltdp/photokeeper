@@ -3,7 +3,7 @@ import datetime
 import sys
 import os
 import os.path
-
+import string
 
 class MetadataReader:
     '''Classe abstrata para leitura dos metadados ano e mes de arquivos de midia
@@ -88,6 +88,7 @@ class JPEG:
     
 class MOV:
     '''Classe que controla informacoes relativas ao tratamento de movs'''
+    #TODO Implementar o leitor manual de MOVs
     extensions = ('mov',)
     parsers = (HachoirGenericReader,)
     prefered = 0
@@ -185,9 +186,92 @@ class Photokeeper:
     def print_failed_files(self):
         for f in self.failed_files:
             print ' - %s' % f
-                    
-                    
+        
+    def copy_files(self):
+        for year in sorted(self.target_files.keys):
+            yearpath = os.path.join(self.destination_dir,year)
+            self._ensure_path_existante(yearpath)
+            for month in sorted(self.target_files[year].keys()):
+                monthpath = os.path.join(yearpath,month)
+                self._ensure_path_existance(monthpath)
+                for filename in sorted(self.target_files[year][month]):
+                    destination_filename = self.ensure_name_corectness(monthpath,filename)
+                    print filename, destination_filename
+                            
+    def _ensure_path_existance(self,path):
+        '''Garante que um determinado diretorio existe e pode ser utilizado'''
+        pass
+    
+    def _ensure_name_correctness(self,path,filename):
+        '''This is a recursive function. Retorna o nome que o arquivo filename 
+        deve usar para ser gravado com no diretorio path com a garantia de nao 
+        sobrescrever outros arquivos que possam ja existir la'''
+        #TODO testar, no caos de colisoes, se se trata do mesmo arquivo
+        filename = os.path.basename(filename)
+        result = os.path.join(path,filename)
+        if os.path.exists(result):
+            new_filename = self._build_alternative_name(filename)
+            result = self._ensure_name_correctness(path,new_filename)
+        return result    
+                
+    def _build_alternative_name(self,original_name):
+        '''Apply a change rule to the original_name in order to avoid 
+        collisions. It is not the duty of this funcion to test whether this
+        makes a new collision'''
+        # Separate name from extension
+        if '.' not in original_name:
+            extension = None
+            name = original_name
+        else:
+            parts = string.rsplit(original_name,'.',1)
+            name = parts[0]
+            extension = parts[1]
+        # Treat both cases: name without and with '_'. the later is more complex
+        if '_' not in name:
+            name = name + '_1'
+        else:
+            # This is the case of possible previous appendage, but it can be 
+            # a false positive. We have to separte a file named myphoto_2.jpg 
+            # from  myphoto_HDR.jpg. The first would be myphoto_3.jpg and the 
+            # second, myphoto_HDR_1.jpg
+            parts = string.rsplit(name,'_',1)
+            possible_number = parts[1]
+            the_rest = parts[0]
+            try:
+                number = int(possible_number)
+                # It was actually a number and has to be incremented
+                number = number + 1
+                appendage = str(number)
+                name = the_rest + '_' + appendage
+            except ValueError:
+                # Nope, not a number. Just a false positive
+                name = name + '_1'
+        if extension:
+            return name + '.' + extension
+        else:
+            return name
+        
 k = Photokeeper('/home/ubuntu/data',None)
 k.read_original_files()
 k.print_orginal_files()
 k.print_failed_files()
+testtuples = (
+    ('myfile.jpg','myfile_1.jpg'), 
+    ('myfile_1.jpg', 'myfile_2.jpg'),
+    ('myfile_15.jpg', 'myfile_16.jpg'),
+    ('myfile_xpto.jpg', 'myfile_xpto_1.jpg'),
+    ('myfile_xpto_4.jpg', 'myfile_xpto_5.jpg'),
+    ('myfile_2_xpto.jpg', 'myfile_2_xpto_1.jpg'),
+    ('myfile','myfile_1'), 
+    ('myfile_1', 'myfile_2'),
+    ('myfile_15', 'myfile_16'),
+    ('myfile_xpto', 'myfile_xpto_1'),
+    ('myfile_xpto_4', 'myfile_xpto_5'),
+    ('myfile_2_xpto', 'myfile_2_xpto_1'))
+for testtuple in testtuples:
+    result = k._build_alternative_name(testtuple[0])
+    if result != testtuple[1]:
+        t = '[ERROR]'
+    else:
+        t = '[  OK ]'
+    print '%s input: %s; expected: %s; output %s' % (t , testtuple[0], testtuple[1], result)
