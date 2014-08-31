@@ -4,6 +4,8 @@ import sys
 import os
 import os.path
 import string
+import filecmp
+import logging
 
 class MetadataReader:
     '''Classe abstrata para leitura dos metadados ano e mes de arquivos de midia
@@ -206,7 +208,7 @@ class Photokeeper:
         '''This is a recursive function. Retorna o nome que o arquivo filename 
         deve usar para ser gravado com no diretorio path com a garantia de nao 
         sobrescrever outros arquivos que possam ja existir la'''
-        #TODO testar, no caos de colisoes, se se trata do mesmo arquivo
+        #TODO testar, no caso de colisoes, se se trata do mesmo arquivo
         filename = os.path.basename(filename)
         result = os.path.join(path,filename)
         if os.path.exists(result):
@@ -226,14 +228,15 @@ class Photokeeper:
             parts = string.rsplit(original_name,'.',1)
             name = parts[0]
             extension = parts[1]
-        # Treat both cases: name without and with '_'. the later is more complex
+        # Treat both cases: name with and without '_'. the former  is more complex
         if '_' not in name:
             name = name + '_1'
         else:
-            # This is the case of possible previous appendage, but it can be 
-            # a false positive. We have to separte a file named myphoto_2.jpg 
-            # from  myphoto_HDR.jpg. The first would be myphoto_3.jpg and the 
-            # second, myphoto_HDR_1.jpg
+            # This is the case of a possible previous appendage, but it can be 
+            # also a false positive. We have to detect and diferentiate both 
+            # cases (for example, myphoto_1.jpg is previous appendage, but 
+            # myphoto_HDR.jpg is false positive). The first case should generate 
+            # a myphoto_3.jpg and the second, myphoto_HDR_1.jpg
             parts = string.rsplit(name,'_',1)
             possible_number = parts[1]
             the_rest = parts[0]
@@ -250,7 +253,20 @@ class Photokeeper:
             return name + '.' + extension
         else:
             return name
-        
+
+
+loglevel='WARNING'
+numeric_level = getattr(logging, loglevel.upper(), None)
+if not isinstance(numeric_level, int):
+    raise ValueError('Invalid log level: %s' % loglevel)
+logging.basicConfig(level=numeric_level)
+logging.info('teste')
+logging.warning('teste2')
+
+#filename = 
+#logging.basicConfig(filename=logfile,level=numeric_level, ...)
+
+
 k = Photokeeper('/home/ubuntu/data',None)
 k.read_original_files()
 k.print_orginal_files()
